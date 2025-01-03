@@ -1,4 +1,8 @@
-import { AmqpConnection, RabbitSubscribe } from '@golevelup/nestjs-rabbitmq'
+import {
+  AmqpConnection,
+  RabbitRPC,
+  // RabbitSubscribe,
+} from '@golevelup/nestjs-rabbitmq'
 import { Injectable } from '@nestjs/common'
 import { configPublish } from './common/config-rabbitMQ'
 import { CreateClientDto } from './dto/create-client.dto'
@@ -8,7 +12,7 @@ import { UpdateClientDto } from './dto/update-client.dto'
 export class ClientsService {
   constructor(private readonly amqpConnection: AmqpConnection) {}
 
-  @RabbitSubscribe({
+  @RabbitRPC({
     queue: configPublish.QUEUE_CREATE_COUPON,
     routingKey: configPublish.ROUTING_ROUTINGKEY_CREATE_COUPON,
     exchange: configPublish.ROUTING_EXCHANGE_CREATE_COUPON,
@@ -23,6 +27,7 @@ export class ClientsService {
       configPublish.ROUTING_ROUTINGKEY_CREATE_COUPON_WRITE,
       createClientDto,
     )
+    return { success: true, message: 'Coupon created successfully' }
   }
 
   findAll() {
