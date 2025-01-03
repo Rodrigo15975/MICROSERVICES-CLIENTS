@@ -4,6 +4,7 @@ import {
 } from '@golevelup/nestjs-rabbitmq'
 
 export const configPublish = {
+  QUEUE_CREATE_COUPON: 'client.create.coupon',
   ROUTING_EXCHANGE_CREATE_COUPON: 'client.create.coupon',
   ROUTING_ROUTINGKEY_CREATE_COUPON: 'client.create.coupon',
 }

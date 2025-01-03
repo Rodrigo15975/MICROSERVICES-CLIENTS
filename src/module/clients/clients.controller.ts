@@ -1,23 +1,19 @@
 import { Controller } from '@nestjs/common'
-import { Ctx, EventPattern, Payload, RmqContext } from '@nestjs/microservices'
+import { EventPattern, Payload } from '@nestjs/microservices'
 import { ClientsService } from './clients.service'
-import { CreateClientDto } from './dto/create-client.dto'
+// import { CreateClientDto } from './dto/create-client.dto'
 import { UpdateClientDto } from './dto/update-client.dto'
 
 @Controller()
 export class ClientsController {
   constructor(private readonly clientsService: ClientsService) {}
 
-  @EventPattern('createClient')
-  create(
-    @Payload() createClientDto: CreateClientDto,
-    @Ctx() context: RmqContext,
-  ) {
+  create(data: any) {
     console.log({
-      context,
+      data,
     })
 
-    return this.clientsService.create(createClientDto)
+    // return this.clientsService.create(createClientDto)
   }
 
   @EventPattern('findAllClients')
