@@ -1,12 +1,14 @@
 import { Module } from '@nestjs/common'
 import { ClientsService } from './clients.service'
-import { ClientsController } from './clients.controller'
+// import { ClientsController } from './clients.controller'
 import { RabbitMQModule } from '@golevelup/nestjs-rabbitmq'
 import { configExchange, configQueue } from './common/config-rabbitMQ'
 import { ConfigModule, ConfigService } from '@nestjs/config'
+import { PrismaModule } from 'src/prisma/prisma.module'
 
 @Module({
   imports: [
+    PrismaModule,
     ConfigModule.forRoot({
       envFilePath: '.env',
       isGlobal: true,
@@ -26,7 +28,6 @@ import { ConfigModule, ConfigService } from '@nestjs/config'
       inject: [ConfigService],
     }),
   ],
-  controllers: [ClientsController],
   providers: [ClientsService],
 })
 export class ClientsModule {}

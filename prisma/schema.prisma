@@ -74,6 +74,7 @@ model OrdersItems {
 model Coupon {
   id         String   @id @default(cuid())
   discount   Int
+  startDate  DateTime
   espiryDate DateTime
   expired    Boolean
   code       String   @unique
