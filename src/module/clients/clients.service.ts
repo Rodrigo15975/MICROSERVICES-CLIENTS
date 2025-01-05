@@ -1,4 +1,4 @@
-import { RabbitRPC } from '@golevelup/nestjs-rabbitmq'
+import { RabbitRPC, RabbitSubscribe } from '@golevelup/nestjs-rabbitmq'
 import { HttpStatus, Injectable, Logger } from '@nestjs/common'
 import { PrismaService } from 'src/prisma/prisma.service'
 import { configPublish } from './common/config-rabbitMQ'
@@ -22,13 +22,6 @@ export class ClientsService {
   })
   async createCuponIfUserNotExists(userIdGoogle: string) {
     return await this.createClient(userIdGoogle)
-  }
-  async findOneClient(userIdGoogle: string) {
-    return await this.prismaService.clients.findUnique({
-      where: {
-        userIdGoogle,
-      },
-    })
   }
 
   private async createClient(userIdGoogle: string) {
@@ -57,23 +50,7 @@ export class ClientsService {
       )
     }
   }
-  private getDataForCreateCoupon(userIdGoogle: string) {
-    const code = generateCouponCode()
-    const { endDate: espiryDate, startDate } = convertedDateISO()
-    const data: CreateCouponForNewClient = {
-      code,
-      discount: 10,
-      expired: false,
-      startDate,
-      espiryDate,
-      clients: {
-        connect: {
-          userIdGoogle,
-        },
-      },
-    }
-    return data
-  }
+
   private async createCouponForNewClient(userIdGoogle: string) {
     try {
       const data = this.getDataForCreateCoupon(userIdGoogle)
@@ -96,7 +73,6 @@ export class ClientsService {
       )
     }
   }
-
   @RabbitRPC({
     queue: configPublish.QUEUE_GET_ALL_CLIENTS_ONLY_COUPONS,
     routingKey: configPublish.ROUTING_ROUTINGKEY_GET_ALL_CLIENTS_ONLY_COUPONS,
@@ -106,10 +82,14 @@ export class ClientsService {
     try {
       return await this.prismaService.clients.findMany({
         include: {
-          _count: true,
-          contact: true,
-          coupon: true,
-          orders: true,
+          coupon: {
+            select: {
+              startDate: true,
+              espiryDate: true,
+              id: true,
+              code: true,
+            },
+          },
         },
       })
     } catch (error) {
@@ -121,6 +101,12 @@ export class ClientsService {
       )
     }
   }
+
+  @RabbitRPC({
+    queue: configPublish.QUEUE_GET_ALL_CLIENTS,
+    exchange: configPublish.ROUTING_EXCHANGE_GET_ALL_CLIENTS,
+    routingKey: configPublish.ROUTING_ROUTINGKEY_GET_ALL_CLIENTS,
+  })
   async findAll() {
     try {
       return await this.prismaService.clients.findMany({
@@ -141,9 +127,38 @@ export class ClientsService {
     }
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} client`
+  private async findOneClient(userIdGoogle: string) {
+    return await this.prismaService.clients.findUnique({
+      where: {
+        userIdGoogle,
+      },
+    })
   }
+
+  private getDataForCreateCoupon(userIdGoogle: string) {
+    const code = generateCouponCode()
+    const { endDate: espiryDate, startDate } = convertedDateISO()
+    const data: CreateCouponForNewClient = {
+      code,
+      discount: 10,
+      expired: false,
+      startDate,
+      espiryDate,
+      clients: {
+        connect: {
+          userIdGoogle,
+        },
+      },
+    }
+    return data
+  }
+
+  @RabbitSubscribe({
+    queue: configPublish.QUEUE_UPDATE_EXPIRY_DATE_COUPON,
+    routingKey: configPublish.ROUTING_ROUTINGKEY_UPDATE_EXPIRY_DATE_COUPON,
+    exchange: configPublish.ROUTING_EXCHANGE_UPDATE_EXPIRY_DATE_COUPON,
+  })
+  private updateEspiryDateCouponForNewClient() {}
 
   update(id: number, updateClientDto: UpdateClientDto) {
     console.log({
