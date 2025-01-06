@@ -175,16 +175,7 @@ export class ClientsService {
   })
   async updateEspiryDateCouponForNewClient() {
     try {
-      const allClients = await this.prismaService.clients.findMany({
-        where: {
-          coupon: {
-            expired: false,
-          },
-        },
-        include: {
-          coupon: true,
-        },
-      })
+      const allClients = await this.findAllCupons()
 
       const updatePromises = allClients.map((coupons) =>
         this.limiter.schedule(() => this.updateEspiryDate(coupons)),
