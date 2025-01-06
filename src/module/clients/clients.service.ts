@@ -2,16 +2,31 @@ import { RabbitRPC, RabbitSubscribe } from '@golevelup/nestjs-rabbitmq'
 import { HttpStatus, Injectable, Logger } from '@nestjs/common'
 import { PrismaService } from 'src/prisma/prisma.service'
 import { configPublish } from './common/config-rabbitMQ'
-import { CreateCouponForNewClient } from './dto/create-client.dto'
+import {
+  CouponForNewClient,
+  CreateCouponForNewClient,
+} from './dto/create-client.dto'
 import { UpdateClientDto } from './dto/update-client.dto'
 import { convertedDateISO } from './utils/formatDateIso'
 import { generateCouponCode } from './utils/generateCodeCoupon'
 import { HandledRpcException } from './common/handle-errorst'
-
+import Bottleneck from 'bottleneck'
+import { expiredDateVerification } from './utils/verificationDate'
 @Injectable()
 export class ClientsService {
   private readonly logger: Logger = new Logger(ClientsService.name)
-  constructor(private readonly prismaService: PrismaService) {}
+  private readonly limiter = new Bottleneck({
+    maxConcurrent: 5, // Máximo 3 tareas concurrentes
+    minTime: 100, // Al menos 200 ms entre tareas
+    clusterNodes: 5,
+    maxRetries: 5,
+  })
+
+  constructor(private readonly prismaService: PrismaService) {
+    this.limiter.on('executing', (task) => {
+      this.logger.verbose(`Executing task: ${task.options.id} `)
+    })
+  }
 
   async create() {}
 
@@ -23,7 +38,6 @@ export class ClientsService {
   async createCuponIfUserNotExists(userIdGoogle: string) {
     return await this.createClient(userIdGoogle)
   }
-
   private async createClient(userIdGoogle: string) {
     try {
       const client = await this.findOneClient(userIdGoogle)
@@ -73,23 +87,23 @@ export class ClientsService {
       )
     }
   }
-  @RabbitRPC({
-    queue: configPublish.QUEUE_GET_ALL_CLIENTS_ONLY_COUPONS,
-    routingKey: configPublish.ROUTING_ROUTINGKEY_GET_ALL_CLIENTS_ONLY_COUPONS,
-    exchange: configPublish.ROUTING_EXCHANGE_GET_ALL_CLIENTS_ONLY_COUPONS,
-  })
-  async findAllCupons() {
+  // @RabbitRPC({
+  //   queue: configPublish.QUEUE_GET_ALL_CLIENTS_ONLY_COUPONS,
+  //   routingKey: configPublish.ROUTING_ROUTINGKEY_GET_ALL_CLIENTS_ONLY_COUPONS,
+  //   exchange: configPublish.ROUTING_EXCHANGE_GET_ALL_CLIENTS_ONLY_COUPONS,
+  // })
+  async findAllCupons(skip = 0, take = 10) {
     try {
       return await this.prismaService.clients.findMany({
-        include: {
+        skip,
+        take,
+        where: {
           coupon: {
-            select: {
-              startDate: true,
-              espiryDate: true,
-              id: true,
-              code: true,
-            },
+            expired: false,
           },
+        },
+        include: {
+          coupon: true,
         },
       })
     } catch (error) {
@@ -107,11 +121,12 @@ export class ClientsService {
     exchange: configPublish.ROUTING_EXCHANGE_GET_ALL_CLIENTS,
     routingKey: configPublish.ROUTING_ROUTINGKEY_GET_ALL_CLIENTS,
   })
-  async findAll() {
+  async findAll(skip = 0, take = 10) {
     try {
       return await this.prismaService.clients.findMany({
+        skip,
+        take,
         include: {
-          _count: true,
           contact: true,
           coupon: true,
           orders: true,
@@ -158,7 +173,50 @@ export class ClientsService {
     routingKey: configPublish.ROUTING_ROUTINGKEY_UPDATE_EXPIRY_DATE_COUPON,
     exchange: configPublish.ROUTING_EXCHANGE_UPDATE_EXPIRY_DATE_COUPON,
   })
-  private updateEspiryDateCouponForNewClient() {}
+  async updateEspiryDateCouponForNewClient() {
+    try {
+      const allClients = await this.prismaService.clients.findMany({
+        where: {
+          coupon: {
+            expired: false,
+          },
+        },
+        include: {
+          coupon: true,
+        },
+      })
+
+      const updatePromises = allClients.map((coupons) =>
+        this.limiter.schedule(() => this.updateEspiryDate(coupons)),
+      )
+      await Promise.all(updatePromises)
+    } catch (error) {
+      this.logger.error('Error coupon espiry date of client', error)
+      throw HandledRpcException.rpcException(
+        error.message || 'Internal Server Error',
+        error.statusCode || HttpStatus.INTERNAL_SERVER_ERROR,
+        ClientsService.name,
+      )
+    }
+  }
+  private async updateEspiryDate(data: CouponForNewClient) {
+    const { id, coupon } = data
+    const { espiryDate, code } = coupon
+    const verifyEspiryDate = expiredDateVerification(espiryDate.toISOString())
+    await this.prismaService.clients.update({
+      data: {
+        coupon: {
+          update: {
+            expired: verifyEspiryDate && true,
+          },
+        },
+      },
+      where: {
+        id,
+      },
+    })
+    this.logger.verbose("Coupon's expiry date has been updated: " + code)
+  }
 
   update(id: number, updateClientDto: UpdateClientDto) {
     console.log({

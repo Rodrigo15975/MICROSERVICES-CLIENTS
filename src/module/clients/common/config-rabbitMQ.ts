@@ -8,12 +8,6 @@ export const configPublish = {
   ROUTING_EXCHANGE_CREATE_COUPON: 'client.create.coupon',
   ROUTING_ROUTINGKEY_CREATE_COUPON: 'client.create.coupon',
 
-  QUEUE_GET_ALL_CLIENTS_ONLY_COUPONS: 'client.get.all.clients.only.coupons',
-  ROUTING_EXCHANGE_GET_ALL_CLIENTS_ONLY_COUPONS:
-    'client.get.all.clients.only.coupons',
-  ROUTING_ROUTINGKEY_GET_ALL_CLIENTS_ONLY_COUPONS:
-    'client.get.all.clients.only.coupons',
-
   QUEUE_UPDATE_EXPIRY_DATE_COUPON: 'client.update.expiry.date.coupon',
   ROUTING_EXCHANGE_UPDATE_EXPIRY_DATE_COUPON:
     'client.update.expiry.date.coupon',
@@ -36,11 +30,7 @@ export const configQueue: RabbitMQQueueConfig[] = [
     routingKey: 'client.get.all.clients.only.coupons',
     exchange: 'client.get.all.clients.only.coupons',
   },
-  {
-    name: 'client.update.expiry.date.coupon',
-    routingKey: 'client.update.expiry.date.coupon',
-    exchange: 'client.update.expiry.date.coupon',
-  },
+
   {
     name: 'client.get.all.clients',
     routingKey: 'client.get.all.clients',
@@ -57,10 +47,7 @@ export const configExchange: RabbitMQExchangeConfig[] = [
     name: 'client.get.all.clients.only.coupons',
     type: 'direct',
   },
-  {
-    name: 'client.update.expiry.date.coupon',
-    type: 'direct',
-  },
+
   {
     name: 'client.get.all.clients',
     type: 'direct',
