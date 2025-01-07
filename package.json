@@ -34,6 +34,7 @@
     "bottleneck": "^2.19.5",
     "cacheable": "^1.8.7",
     "date-fns": "^4.1.0",
+    "mailtrap": "^3.4.0",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.1"
   },

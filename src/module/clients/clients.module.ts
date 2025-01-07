@@ -6,10 +6,12 @@ import { configExchange, configQueue } from './common/config-rabbitMQ'
 import { ConfigModule, ConfigService } from '@nestjs/config'
 import { PrismaModule } from 'src/prisma/prisma.module'
 import { CacheModule } from '../cache/cache.module'
+import { NotificationEmailModule } from '../notification-email/notification-email.module'
 
 @Module({
   imports: [
     PrismaModule,
+    NotificationEmailModule,
     CacheModule,
     ConfigModule.forRoot({
       envFilePath: '.env',

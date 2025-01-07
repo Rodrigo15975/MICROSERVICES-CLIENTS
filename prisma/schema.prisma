@@ -10,6 +10,7 @@ datasource db {
 model Clients {
   id           String   @id @default(cuid())
   userIdGoogle String   @unique
+  emailGoogle  String   @unique
   orders       Orders[]
   coupon       Coupon?
   contact      Contact?
@@ -18,11 +19,12 @@ model Clients {
   updatedAt DateTime @updatedAt
 
   @@index([userIdGoogle])
+  @@index([emailGoogle])
 }
 
 model Orders {
   id           String   @id @unique @default(cuid())
-  Clients      Clients? @relation(fields: [clientsId], references: [id])
+  Clients      Clients? @relation(fields: [clientsId], references: [id], onDelete: Cascade)
   clientsId    String?
   amount_total Decimal  @db.Decimal(10, 2)
 
@@ -42,7 +44,7 @@ model OrdersVariants {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  OrdersItems   OrdersItems @relation(fields: [ordersItemsId], references: [id])
+  OrdersItems   OrdersItems @relation(fields: [ordersItemsId], references: [id], onDelete: Cascade)
   ordersItemsId String
 
   @@map("orders_variants")
@@ -62,7 +64,7 @@ model OrdersItems {
   categorie      String
 
   orderId String
-  Orders  Orders @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  Orders  Orders @relation(fields: [orderId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -83,7 +85,7 @@ model Coupon {
   updateAt DateTime @updatedAt
 
   clientsId String  @unique
-  clients   Clients @relation(fields: [clientsId], references: [id])
+  clients   Clients @relation(fields: [clientsId], references: [id], onDelete: Cascade)
 
   @@index([expired])
   @@index([code])

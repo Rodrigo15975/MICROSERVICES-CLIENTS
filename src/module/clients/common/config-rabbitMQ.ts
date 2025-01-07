@@ -52,4 +52,8 @@ export const configExchange: RabbitMQExchangeConfig[] = [
     name: 'client.get.all.clients',
     type: 'direct',
   },
+  {
+    name: 'testing',
+    type: 'direct',
+  },
 ]

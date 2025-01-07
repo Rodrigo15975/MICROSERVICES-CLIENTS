@@ -3,7 +3,10 @@ import { HttpStatus, Injectable, Logger } from '@nestjs/common'
 import Bottleneck from 'bottleneck'
 import { PrismaService } from 'src/prisma/prisma.service'
 import { CacheService } from '../cache/cache.service'
-import { CACHE_NAME_ONLY_COUPONS } from './common/cache-name'
+import {
+  CACHE_NAME_FIND_ONE_CLIENT,
+  CACHE_NAME_ONLY_COUPONS,
+} from './common/cache-name'
 import { configPublish } from './common/config-rabbitMQ'
 import { HandledRpcException } from './common/handle-errorst'
 import {
@@ -13,6 +16,7 @@ import {
 import { convertedDateISO } from './utils/formatDateIso'
 import { generateCouponCode } from './utils/generateCodeCoupon'
 import { expiredDateVerification } from './utils/verificationDate'
+import { NotificationEmailService } from '../notification-email/notification-email.service'
 @Injectable()
 export class ClientsService {
   private readonly logger: Logger = new Logger(ClientsService.name)
@@ -26,6 +30,7 @@ export class ClientsService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly cacheService: CacheService,
+    private readonly notificationEmail: NotificationEmailService,
   ) {
     this.limiter.on('executing', (task) => {
       this.logger.verbose('Executing task:', task.options.id)
@@ -59,7 +64,6 @@ export class ClientsService {
         },
       })
       this.logger.verbose('Client created successfully')
-      await this.cacheService.delete(CACHE_NAME_ONLY_COUPONS)
       return await this.createCouponForNewClient(userIdGoogle)
     } catch (error) {
       this.logger.error(error)
@@ -77,6 +81,11 @@ export class ClientsService {
       await this.prismaService.coupon.create({
         data,
       })
+      await this.cacheService.delete(CACHE_NAME_ONLY_COUPONS)
+      await this.findAllCupons()
+      this.logger.verbose(
+        `Coupon created successfully for client ${userIdGoogle}`,
+      )
       return HandledRpcException.ResponseSuccessfullyMessagePattern(
         'You have a coupon for all products with a 20% discount',
         HttpStatus.CREATED,
@@ -168,7 +177,7 @@ export class ClientsService {
     const { endDate: espiryDate, startDate } = convertedDateISO()
     const data: CreateCouponForNewClient = {
       code,
-      discount: 10,
+      discount: 20,
       expired: false,
       startDate,
       espiryDate,
@@ -220,5 +229,47 @@ export class ClientsService {
       },
     })
     this.logger.verbose("Coupon's expiry date has been updated: " + code)
+  }
+
+  async findOne(userIdGoogle: string) {
+    try {
+      const clientCaching = await this.cacheService.get(
+        CACHE_NAME_FIND_ONE_CLIENT,
+      )
+      if (clientCaching) return clientCaching
+      const client = await this.prismaService.clients.findUnique({
+        where: {
+          userIdGoogle,
+        },
+        include: {
+          coupon: true,
+          orders: true,
+          contact: true,
+        },
+      })
+      await this.cacheService.set(CACHE_NAME_FIND_ONE_CLIENT, client, '1h')
+      return client
+    } catch (error) {
+      this.logger.error('Error get only client', error)
+      throw HandledRpcException.rpcException(
+        error.message || 'Internal Server Error',
+        error.statusCode || HttpStatus.INTERNAL_SERVER_ERROR,
+        ClientsService.name,
+      )
+    }
+  }
+  // update contact of client
+  async updateClientContact() {}
+
+  /**
+   * testing
+   */
+  @RabbitSubscribe({
+    routingKey: 'testing',
+    exchange: 'testing',
+    queue: 'testing',
+  })
+  public async testing() {
+    await this.notificationEmail.sendEmail()
   }
 }
