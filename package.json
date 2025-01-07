@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@golevelup/nestjs-rabbitmq": "^5.6.1",
+    "@keyv/redis": "^4.2.0",
     "@nestjs/common": "^10.0.0",
     "@nestjs/config": "^3.3.0",
     "@nestjs/core": "^10.0.0",
@@ -31,6 +32,7 @@
     "amqplib": "^0.10.5",
     "bluebird": "^3.7.2",
     "bottleneck": "^2.19.5",
+    "cacheable": "^1.8.7",
     "date-fns": "^4.1.0",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.1"

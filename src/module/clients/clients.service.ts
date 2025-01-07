@@ -1,16 +1,17 @@
 import { RabbitRPC, RabbitSubscribe } from '@golevelup/nestjs-rabbitmq'
 import { HttpStatus, Injectable, Logger } from '@nestjs/common'
+import Bottleneck from 'bottleneck'
 import { PrismaService } from 'src/prisma/prisma.service'
+import { CacheService } from '../cache/cache.service'
+import { CACHE_NAME_ONLY_COUPONS } from './common/cache-name'
 import { configPublish } from './common/config-rabbitMQ'
+import { HandledRpcException } from './common/handle-errorst'
 import {
   CouponForNewClient,
   CreateCouponForNewClient,
 } from './dto/create-client.dto'
-import { UpdateClientDto } from './dto/update-client.dto'
 import { convertedDateISO } from './utils/formatDateIso'
 import { generateCouponCode } from './utils/generateCodeCoupon'
-import { HandledRpcException } from './common/handle-errorst'
-import Bottleneck from 'bottleneck'
 import { expiredDateVerification } from './utils/verificationDate'
 @Injectable()
 export class ClientsService {
@@ -22,9 +23,12 @@ export class ClientsService {
     maxRetries: 5,
   })
 
-  constructor(private readonly prismaService: PrismaService) {
+  constructor(
+    private readonly prismaService: PrismaService,
+    private readonly cacheService: CacheService,
+  ) {
     this.limiter.on('executing', (task) => {
-      this.logger.verbose(`Executing task: ${task.options.id} `)
+      this.logger.verbose('Executing task:', task.options.id)
     })
   }
 
@@ -54,6 +58,8 @@ export class ClientsService {
           userIdGoogle,
         },
       })
+      this.logger.verbose('Client created successfully')
+      await this.cacheService.delete(CACHE_NAME_ONLY_COUPONS)
       return await this.createCouponForNewClient(userIdGoogle)
     } catch (error) {
       this.logger.error(error)
@@ -87,16 +93,15 @@ export class ClientsService {
       )
     }
   }
-  // @RabbitRPC({
-  //   queue: configPublish.QUEUE_GET_ALL_CLIENTS_ONLY_COUPONS,
-  //   routingKey: configPublish.ROUTING_ROUTINGKEY_GET_ALL_CLIENTS_ONLY_COUPONS,
-  //   exchange: configPublish.ROUTING_EXCHANGE_GET_ALL_CLIENTS_ONLY_COUPONS,
-  // })
-  async findAllCupons(skip = 0, take = 10) {
+
+  async findAllCupons() {
     try {
-      return await this.prismaService.clients.findMany({
-        skip,
-        take,
+      const findAllClientCouponsCaching = await this.cacheService.get<
+        CouponForNewClient[]
+      >(CACHE_NAME_ONLY_COUPONS)
+
+      if (findAllClientCouponsCaching) return findAllClientCouponsCaching
+      const findAllClientCouponsDb = await this.prismaService.clients.findMany({
         where: {
           coupon: {
             expired: false,
@@ -106,6 +111,13 @@ export class ClientsService {
           coupon: true,
         },
       })
+      await this.cacheService.set(
+        CACHE_NAME_ONLY_COUPONS,
+        findAllClientCouponsDb,
+        '1d',
+      )
+
+      return findAllClientCouponsDb
     } catch (error) {
       this.logger.error('Error get all clients only coupons', error)
       throw HandledRpcException.rpcException(
@@ -121,11 +133,12 @@ export class ClientsService {
     exchange: configPublish.ROUTING_EXCHANGE_GET_ALL_CLIENTS,
     routingKey: configPublish.ROUTING_ROUTINGKEY_GET_ALL_CLIENTS,
   })
-  async findAll(skip = 0, take = 10) {
+  async findAll() {
+    // skip = 0, take = 10
     try {
       return await this.prismaService.clients.findMany({
-        skip,
-        take,
+        // skip,
+        // take,
         include: {
           contact: true,
           coupon: true,
@@ -176,11 +189,11 @@ export class ClientsService {
   async updateEspiryDateCouponForNewClient() {
     try {
       const allClients = await this.findAllCupons()
-
       const updatePromises = allClients.map((coupons) =>
         this.limiter.schedule(() => this.updateEspiryDate(coupons)),
       )
       await Promise.all(updatePromises)
+      await this.cacheService.delete(CACHE_NAME_ONLY_COUPONS)
     } catch (error) {
       this.logger.error('Error coupon espiry date of client', error)
       throw HandledRpcException.rpcException(
@@ -207,17 +220,5 @@ export class ClientsService {
       },
     })
     this.logger.verbose("Coupon's expiry date has been updated: " + code)
-  }
-
-  update(id: number, updateClientDto: UpdateClientDto) {
-    console.log({
-      updateClientDto,
-    })
-
-    return `This action updates a #${id} client`
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} client`
   }
 }

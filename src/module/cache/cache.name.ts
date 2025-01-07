@@ -1,0 +1,1 @@
+export const CACHE_INSTANCE = 'CACHE_PRODUCTS_DB_READ'

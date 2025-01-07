@@ -5,10 +5,12 @@ import { RabbitMQModule } from '@golevelup/nestjs-rabbitmq'
 import { configExchange, configQueue } from './common/config-rabbitMQ'
 import { ConfigModule, ConfigService } from '@nestjs/config'
 import { PrismaModule } from 'src/prisma/prisma.module'
+import { CacheModule } from '../cache/cache.module'
 
 @Module({
   imports: [
     PrismaModule,
+    CacheModule,
     ConfigModule.forRoot({
       envFilePath: '.env',
       isGlobal: true,
