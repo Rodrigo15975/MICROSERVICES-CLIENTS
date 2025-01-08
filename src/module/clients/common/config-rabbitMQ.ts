@@ -17,6 +17,10 @@ export const configPublish = {
   QUEUE_GET_ALL_CLIENTS: 'client.get.all.clients',
   ROUTING_EXCHANGE_GET_ALL_CLIENTS: 'client.get.all.clients',
   ROUTING_ROUTINGKEY_GET_ALL_CLIENTS: 'client.get.all.clients',
+
+  ROUTING_EXCHANGE_GET_ONE_CLIENT: 'client.get.one.client',
+  ROUTING_ROUTINGKEY_GET_ONE_CLIENT: 'client.get.one.client',
+  QUEUE_GET_ONE_CLIENT: 'client.get.one.client',
 }
 
 export const configQueue: RabbitMQQueueConfig[] = [
@@ -32,9 +36,20 @@ export const configQueue: RabbitMQQueueConfig[] = [
   },
 
   {
+    name: 'client.update.expiry.date.coupon',
+    routingKey: 'client.update.expiry.date.coupon',
+    exchange: 'client.update.expiry.date.coupon',
+  },
+
+  {
     name: 'client.get.all.clients',
     routingKey: 'client.get.all.clients',
     exchange: 'client.get.all.clients',
+  },
+  {
+    name: 'client.get.one.client',
+    routingKey: 'client.get.one.client',
+    exchange: 'client.get.one.client',
   },
 ]
 
@@ -47,13 +62,17 @@ export const configExchange: RabbitMQExchangeConfig[] = [
     name: 'client.get.all.clients.only.coupons',
     type: 'direct',
   },
+  {
+    name: 'client.update.expiry.date.coupon',
+    type: 'direct',
+  },
 
   {
     name: 'client.get.all.clients',
     type: 'direct',
   },
   {
-    name: 'testing',
+    name: 'client.get.one.client',
     type: 'direct',
   },
 ]

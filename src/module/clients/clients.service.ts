@@ -11,6 +11,7 @@ import { configPublish } from './common/config-rabbitMQ'
 import { HandledRpcException } from './common/handle-errorst'
 import {
   CouponForNewClient,
+  CreateClientDto,
   CreateCouponForNewClient,
 } from './dto/create-client.dto'
 import { convertedDateISO } from './utils/formatDateIso'
@@ -44,10 +45,15 @@ export class ClientsService {
     routingKey: configPublish.ROUTING_ROUTINGKEY_CREATE_COUPON,
     exchange: configPublish.ROUTING_EXCHANGE_CREATE_COUPON,
   })
-  async createCuponIfUserNotExists(userIdGoogle: string) {
-    return await this.createClient(userIdGoogle)
+  async createCuponIfUserNotExists(data: CreateClientDto) {
+    const { emailGoogle, nameGoogle, userIdGoogle } = data
+    return await this.createClient(userIdGoogle, emailGoogle, nameGoogle)
   }
-  private async createClient(userIdGoogle: string) {
+  private async createClient(
+    userIdGoogle: string,
+    emailGoogle: string,
+    nameGoogle: string,
+  ) {
     try {
       const client = await this.findOneClient(userIdGoogle)
       if (client)
@@ -58,8 +64,16 @@ export class ClientsService {
           undefined,
           false,
         )
+      console.log({
+        emailGoogle,
+        nameGoogle,
+        userIdGoogle,
+      })
+
       await this.prismaService.clients.create({
         data: {
+          emailGoogle,
+          nameGoogle,
           userIdGoogle,
         },
       })
@@ -74,13 +88,20 @@ export class ClientsService {
       )
     }
   }
-
+  private async sendEmailNotification(userIdGoogle: string) {
+    const client = await this.findOneClient(userIdGoogle)
+    await this.notificationEmail.sendEmail(
+      client.nameGoogle,
+      client.emailGoogle,
+    )
+  }
   private async createCouponForNewClient(userIdGoogle: string) {
     try {
       const data = this.getDataForCreateCoupon(userIdGoogle)
       await this.prismaService.coupon.create({
         data,
       })
+      await this.sendEmailNotification(userIdGoogle)
       await this.cacheService.delete(CACHE_NAME_ONLY_COUPONS)
       await this.findAllCupons()
       this.logger.verbose(
@@ -231,7 +252,12 @@ export class ClientsService {
     this.logger.verbose("Coupon's expiry date has been updated: " + code)
   }
 
-  async findOne(userIdGoogle: string) {
+  @RabbitSubscribe({
+    queue: configPublish.QUEUE_GET_ONE_CLIENT,
+    routingKey: configPublish.ROUTING_ROUTINGKEY_GET_ONE_CLIENT,
+    exchange: configPublish.ROUTING_EXCHANGE_GET_ONE_CLIENT,
+  })
+  async findOne({ userIdGoogle }: { userIdGoogle: string }) {
     try {
       const clientCaching = await this.cacheService.get(
         CACHE_NAME_FIND_ONE_CLIENT,
@@ -261,15 +287,12 @@ export class ClientsService {
   // update contact of client
   async updateClientContact() {}
 
-  /**
-   * testing
-   */
-  @RabbitSubscribe({
-    routingKey: 'testing',
-    exchange: 'testing',
-    queue: 'testing',
-  })
-  public async testing() {
-    await this.notificationEmail.sendEmail()
-  }
+  // /**
+  //  * testing
+  //  */
+  // @RabbitSubscribe({
+  //   routingKey: configPublish.ROUTING_ROUTINGKEY_SEND_EMAIL_NOTIFICATION,
+  //   exchange: configPublish.ROUTING_EXCHANGE_SEND_EMAIL_NOTIFICATION,
+  //   queue: configPublish.QUEUE_SEND_EMAIL_NOTIFICATION,
+  // })
 }

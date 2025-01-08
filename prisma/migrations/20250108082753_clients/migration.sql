@@ -2,6 +2,8 @@
 CREATE TABLE "Clients" (
     "id" TEXT NOT NULL,
     "userIdGoogle" TEXT NOT NULL,
+    "emailGoogle" TEXT NOT NULL,
+    "nameGoogle" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -54,6 +56,7 @@ CREATE TABLE "orders_items" (
 CREATE TABLE "Coupon" (
     "id" TEXT NOT NULL,
     "discount" INTEGER NOT NULL,
+    "startDate" TIMESTAMP(3) NOT NULL,
     "espiryDate" TIMESTAMP(3) NOT NULL,
     "expired" BOOLEAN NOT NULL,
     "code" TEXT NOT NULL,
@@ -81,7 +84,13 @@ CREATE TABLE "Contact" (
 CREATE UNIQUE INDEX "Clients_userIdGoogle_key" ON "Clients"("userIdGoogle");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "Clients_emailGoogle_key" ON "Clients"("emailGoogle");
+
+-- CreateIndex
 CREATE INDEX "Clients_userIdGoogle_idx" ON "Clients"("userIdGoogle");
+
+-- CreateIndex
+CREATE INDEX "Clients_emailGoogle_idx" ON "Clients"("emailGoogle");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Orders_id_key" ON "Orders"("id");
@@ -120,16 +129,16 @@ CREATE UNIQUE INDEX "Contact_id_key" ON "Contact"("id");
 CREATE UNIQUE INDEX "Contact_clientId_key" ON "Contact"("clientId");
 
 -- AddForeignKey
-ALTER TABLE "Orders" ADD CONSTRAINT "Orders_clientsId_fkey" FOREIGN KEY ("clientsId") REFERENCES "Clients"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "Orders" ADD CONSTRAINT "Orders_clientsId_fkey" FOREIGN KEY ("clientsId") REFERENCES "Clients"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "orders_variants" ADD CONSTRAINT "orders_variants_ordersItemsId_fkey" FOREIGN KEY ("ordersItemsId") REFERENCES "orders_items"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "orders_variants" ADD CONSTRAINT "orders_variants_ordersItemsId_fkey" FOREIGN KEY ("ordersItemsId") REFERENCES "orders_items"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "orders_items" ADD CONSTRAINT "orders_items_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "Orders"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Coupon" ADD CONSTRAINT "Coupon_clientsId_fkey" FOREIGN KEY ("clientsId") REFERENCES "Clients"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "Coupon" ADD CONSTRAINT "Coupon_clientsId_fkey" FOREIGN KEY ("clientsId") REFERENCES "Clients"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Contact" ADD CONSTRAINT "Contact_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "Clients"("id") ON DELETE CASCADE ON UPDATE CASCADE;

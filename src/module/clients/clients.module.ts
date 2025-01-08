@@ -21,7 +21,7 @@ import { NotificationEmailModule } from '../notification-email/notification-emai
     }),
     RabbitMQModule.forRootAsync(RabbitMQModule, {
       useFactory: (configService: ConfigService) => ({
-        uri: configService.getOrThrow('RABBITMQ_URL'), // Usuario, contraseña y puerto
+        uri: configService.getOrThrow('RABBITMQ_URL'),
         queues: configQueue,
         exchanges: configExchange,
 

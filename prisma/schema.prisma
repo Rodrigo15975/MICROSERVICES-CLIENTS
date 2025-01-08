@@ -11,6 +11,7 @@ model Clients {
   id           String   @id @default(cuid())
   userIdGoogle String   @unique
   emailGoogle  String   @unique
+  nameGoogle   String
   orders       Orders[]
   coupon       Coupon?
   contact      Contact?

@@ -1,41 +1,53 @@
-import { Injectable } from '@nestjs/common'
-import { MailtrapClient } from 'mailtrap'
-
-const TOKEN = '4e856d7f78011592ec73a570e2149716'
-// const SENDER_EMAIL = 'sandbox.api.mailtrap.io'
-// const RECIPIENT_EMAIL = 'rodrigorumpler@gmail.com'
+import { Injectable, Logger } from '@nestjs/common'
+import * as brevo from '@getbrevo/brevo'
+// import { formatEmail } from 'src/common/notification-email'
 
 @Injectable()
 export class NotificationEmailService {
-  private readonly client = new MailtrapClient({
-    token: TOKEN,
-    testInboxId: 3376454,
-    accountId: 1,
-  })
+  private readonly apiInstance = new brevo.TransactionalEmailsApi()
+  private notificationEmail = new brevo.SendSmtpEmail()
+  constructor() {
+    this.apiInstance.setApiKey(
+      brevo.TransactionalEmailsApiApiKeys.apiKey,
+      process.env.BREVO_API_KEY,
+    )
+  }
 
   /**
    * @SendEmail
    */
-  public async sendEmail() {
+  public async sendEmail(nameTo: string, emailTo: string) {
     try {
-      await this.client.testing.send({
-        from: {
-          email: 'hello@example.com',
-          name: 'Mailtrap Test',
-        },
-        to: [
-          {
-            email: 'rodrigorumpler@gmail.com',
+      if (!emailTo || !nameTo) return
+      this.notificationEmail.subject = 'You have a 20% discount on any product'
+      this.notificationEmail.to = [{ name: nameTo, email: emailTo }]
+      this.notificationEmail.htmlContent = `
+        <p>
+        You have a 20% discount on any product
+        </p>
+        `
+      this.notificationEmail.templateId = 2
+      this.notificationEmail.sender = {
+        name: 'RDG E-COMMERCE',
+        email: 'rodrigorumpler@gmail.com',
+      }
 
-            name: 'Rodrigo',
-          },
-        ],
-        subject: 'You are awesome!',
-        text: 'Congrats for sending test email with Mailtrap!',
-        category: 'Integration Test',
-      })
+      await this.apiInstance.sendTransacEmail(this.notificationEmail)
+
+      Logger.verbose(
+        `Email sent successfully for email ${emailTo} with name: ${nameTo} `,
+        NotificationEmailService.name,
+      )
+      return
     } catch (error) {
-      console.error({ error })
+      Logger.fatal('Error while sending email')
+      if (error.response && error.response.body)
+        Logger.error(
+          `Error details: ${JSON.stringify(error.response.body)}`,
+          NotificationEmailService.name,
+        )
+
+      Logger.error(error.message, NotificationEmailService.name)
     }
   }
 }
