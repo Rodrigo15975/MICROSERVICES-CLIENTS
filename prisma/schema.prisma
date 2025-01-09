@@ -63,6 +63,7 @@ model OrdersItems {
   ordersVariants OrdersVariants[]
   discount       Int?
   categorie      String
+  status         PaymentStatus
 
   orderId String
   Orders  Orders @relation(fields: [orderId], references: [id], onDelete: Cascade, onUpdate: Cascade)
@@ -72,6 +73,16 @@ model OrdersItems {
 
   @@index([id])
   @@map("orders_items")
+}
+
+enum PaymentStatus {
+  requires_payment_method
+  requires_confirmation
+  requires_action
+  processing
+  requires_capture
+  canceled
+  succeeded
 }
 
 model Coupon {

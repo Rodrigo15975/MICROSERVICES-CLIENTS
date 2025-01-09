@@ -3,21 +3,16 @@ import { HttpStatus, Injectable, Logger } from '@nestjs/common'
 import Bottleneck from 'bottleneck'
 import { PrismaService } from 'src/prisma/prisma.service'
 import { CacheService } from '../cache/cache.service'
+import { NotificationEmailService } from '../notification-email/notification-email.service'
 import {
   CACHE_NAME_FIND_ONE_CLIENT,
   CACHE_NAME_ONLY_COUPONS,
 } from './common/cache-name'
 import { configPublish } from './common/config-rabbitMQ'
 import { HandledRpcException } from './common/handle-errorst'
-import {
-  CouponForNewClient,
-  CreateClientDto,
-  CreateCouponForNewClient,
-} from './dto/create-client.dto'
-import { convertedDateISO } from './utils/formatDateIso'
-import { generateCouponCode } from './utils/generateCodeCoupon'
+import { CouponForNewClient, CreateClientDto } from './dto/create-client.dto'
+import { getDataForCreateCoupon } from './utils/getDataForCreateCoupon'
 import { expiredDateVerification } from './utils/verificationDate'
-import { NotificationEmailService } from '../notification-email/notification-email.service'
 @Injectable()
 export class ClientsService {
   private readonly logger: Logger = new Logger(ClientsService.name)
@@ -64,11 +59,6 @@ export class ClientsService {
           undefined,
           false,
         )
-      console.log({
-        emailGoogle,
-        nameGoogle,
-        userIdGoogle,
-      })
 
       await this.prismaService.clients.create({
         data: {
@@ -77,6 +67,7 @@ export class ClientsService {
           userIdGoogle,
         },
       })
+      await this.sendEmailNotification(userIdGoogle)
       this.logger.verbose('Client created successfully')
       return await this.createCouponForNewClient(userIdGoogle)
     } catch (error) {
@@ -88,22 +79,17 @@ export class ClientsService {
       )
     }
   }
-  private async sendEmailNotification(userIdGoogle: string) {
-    const client = await this.findOneClient(userIdGoogle)
-    await this.notificationEmail.sendEmail(
-      client.nameGoogle,
-      client.emailGoogle,
-    )
-  }
+
   private async createCouponForNewClient(userIdGoogle: string) {
     try {
-      const data = this.getDataForCreateCoupon(userIdGoogle)
-      await this.prismaService.coupon.create({
-        data,
+      const data = getDataForCreateCoupon(userIdGoogle)
+      await this.limiter.schedule(async () => {
+        const createCoupon = this.prismaService.coupon.create({ data })
+        const deleteCache = this.cacheService.delete(CACHE_NAME_ONLY_COUPONS)
+
+        const findCoupons = this.findAllCupons()
+        await Promise.all([createCoupon, deleteCache, findCoupons])
       })
-      await this.sendEmailNotification(userIdGoogle)
-      await this.cacheService.delete(CACHE_NAME_ONLY_COUPONS)
-      await this.findAllCupons()
       this.logger.verbose(
         `Coupon created successfully for client ${userIdGoogle}`,
       )
@@ -193,24 +179,24 @@ export class ClientsService {
     })
   }
 
-  private getDataForCreateCoupon(userIdGoogle: string) {
-    const code = generateCouponCode()
-    const { endDate: espiryDate, startDate } = convertedDateISO()
-    const data: CreateCouponForNewClient = {
-      code,
-      discount: 20,
-      expired: false,
-      startDate,
-      espiryDate,
-      clients: {
-        connect: {
-          userIdGoogle,
+  private async updateEspiryDate(data: CouponForNewClient) {
+    const { id, coupon } = data
+    const { espiryDate, code } = coupon
+    const verifyEspiryDate = expiredDateVerification(espiryDate.toISOString())
+    await this.prismaService.clients.update({
+      data: {
+        coupon: {
+          update: {
+            expired: verifyEspiryDate && true,
+          },
         },
       },
-    }
-    return data
+      where: {
+        id,
+      },
+    })
+    this.logger.verbose("Coupon's expiry date has been updated: " + code)
   }
-
   @RabbitSubscribe({
     queue: configPublish.QUEUE_UPDATE_EXPIRY_DATE_COUPON,
     routingKey: configPublish.ROUTING_ROUTINGKEY_UPDATE_EXPIRY_DATE_COUPON,
@@ -233,26 +219,15 @@ export class ClientsService {
       )
     }
   }
-  private async updateEspiryDate(data: CouponForNewClient) {
-    const { id, coupon } = data
-    const { espiryDate, code } = coupon
-    const verifyEspiryDate = expiredDateVerification(espiryDate.toISOString())
-    await this.prismaService.clients.update({
-      data: {
-        coupon: {
-          update: {
-            expired: verifyEspiryDate && true,
-          },
-        },
-      },
-      where: {
-        id,
-      },
-    })
-    this.logger.verbose("Coupon's expiry date has been updated: " + code)
+
+  async sendEmailNotification(userIdGoogle: string) {
+    const client = await this.findOneClient(userIdGoogle)
+    if (!client) return
+    const { nameGoogle, emailGoogle } = client
+    await this.notificationEmail.sendEmail(nameGoogle, emailGoogle)
   }
 
-  @RabbitSubscribe({
+  @RabbitRPC({
     queue: configPublish.QUEUE_GET_ONE_CLIENT,
     routingKey: configPublish.ROUTING_ROUTINGKEY_GET_ONE_CLIENT,
     exchange: configPublish.ROUTING_EXCHANGE_GET_ONE_CLIENT,
@@ -262,18 +237,13 @@ export class ClientsService {
       const clientCaching = await this.cacheService.get(
         CACHE_NAME_FIND_ONE_CLIENT,
       )
-      if (clientCaching) return clientCaching
-      const client = await this.prismaService.clients.findUnique({
-        where: {
-          userIdGoogle,
-        },
-        include: {
-          coupon: true,
-          orders: true,
-          contact: true,
-        },
-      })
-      await this.cacheService.set(CACHE_NAME_FIND_ONE_CLIENT, client, '1h')
+      if (clientCaching) {
+        this.logger.verbose('Return data client CACHING: ' + userIdGoogle)
+        return clientCaching
+      }
+      const client = await this.getOneClientAllData(userIdGoogle)
+      await this.cacheService.set(CACHE_NAME_FIND_ONE_CLIENT, client, '5m')
+      this.logger.verbose('Return data client DB: ' + userIdGoogle)
       return client
     } catch (error) {
       this.logger.error('Error get only client', error)
@@ -284,8 +254,24 @@ export class ClientsService {
       )
     }
   }
+  private async getOneClientAllData(userIdGoogle: string) {
+    return await this.prismaService.clients.findUnique({
+      where: {
+        userIdGoogle,
+      },
+      include: {
+        coupon: true,
+        orders: true,
+        contact: true,
+      },
+    })
+  }
+
   // update contact of client
-  async updateClientContact() {}
+  // aqui ira el delete para el cachin one client
+  async updateClientContact() {
+    await this.cacheService.delete(CACHE_NAME_FIND_ONE_CLIENT)
+  }
 
   // /**
   //  * testing

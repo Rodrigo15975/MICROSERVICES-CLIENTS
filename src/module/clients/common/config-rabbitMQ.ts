@@ -29,6 +29,7 @@ export const configQueue: RabbitMQQueueConfig[] = [
     routingKey: 'client.create.coupon',
     exchange: 'client.create.coupon',
   },
+
   {
     name: 'client.get.all.clients.only.coupons',
     routingKey: 'client.get.all.clients.only.coupons',
@@ -58,6 +59,7 @@ export const configExchange: RabbitMQExchangeConfig[] = [
     name: 'client.create.coupon',
     type: 'direct',
   },
+
   {
     name: 'client.get.all.clients.only.coupons',
     type: 'direct',
