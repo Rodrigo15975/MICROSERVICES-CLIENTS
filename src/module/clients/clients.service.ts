@@ -18,7 +18,7 @@ export class ClientsService {
   private readonly logger: Logger = new Logger(ClientsService.name)
   private readonly limiter = new Bottleneck({
     maxConcurrent: 5, // Máximo 3 tareas concurrentes
-    minTime: 100, // Al menos 200 ms entre tareas
+    minTime: 300, // Al menos 200 ms entre tareas
     clusterNodes: 5,
     maxRetries: 5,
   })
@@ -60,6 +60,7 @@ export class ClientsService {
           false,
         )
 
+      await this.sendEmailNotification(userIdGoogle)
       await this.prismaService.clients.create({
         data: {
           emailGoogle,
@@ -67,11 +68,10 @@ export class ClientsService {
           userIdGoogle,
         },
       })
-      await this.sendEmailNotification(userIdGoogle)
       this.logger.verbose('Client created successfully')
       return await this.createCouponForNewClient(userIdGoogle)
     } catch (error) {
-      this.logger.error(error)
+      this.logger.error('Error create client', error)
       throw HandledRpcException.rpcException(
         error.message || 'Internal Server Error',
         error.statusCode || HttpStatus.INTERNAL_SERVER_ERROR,
@@ -86,7 +86,6 @@ export class ClientsService {
       await this.limiter.schedule(async () => {
         const createCoupon = this.prismaService.coupon.create({ data })
         const deleteCache = this.cacheService.delete(CACHE_NAME_ONLY_COUPONS)
-
         const findCoupons = this.findAllCupons()
         await Promise.all([createCoupon, deleteCache, findCoupons])
       })
@@ -101,7 +100,7 @@ export class ClientsService {
         true,
       )
     } catch (error) {
-      this.logger.error(error)
+      this.logger.error('Error create coupon for new client', error)
       throw HandledRpcException.rpcException(
         error.message || 'Internal Server Error',
         error.statusCode || HttpStatus.INTERNAL_SERVER_ERROR,
@@ -232,17 +231,25 @@ export class ClientsService {
     routingKey: configPublish.ROUTING_ROUTINGKEY_GET_ONE_CLIENT,
     exchange: configPublish.ROUTING_EXCHANGE_GET_ONE_CLIENT,
   })
-  async findOne({ userIdGoogle }: { userIdGoogle: string }) {
+  async findOne({
+    userIdGoogle,
+    verify,
+  }: {
+    userIdGoogle: string
+    verify?: boolean
+  }) {
     try {
-      const clientCaching = await this.cacheService.get(
-        CACHE_NAME_FIND_ONE_CLIENT,
-      )
-      if (clientCaching) {
-        this.logger.verbose('Return data client CACHING: ' + userIdGoogle)
-        return clientCaching
-      }
+      // const clientCaching = await this.cacheService.get(
+      //   CACHE_NAME_FIND_ONE_CLIENT,
+      // )
+      // if (clientCaching) {
+      //   this.logger.verbose('Return data client CACHING: ' + userIdGoogle)
+      //   return clientCaching
+      // }
+      if (verify) return await this.verifyFindOne(userIdGoogle)
+
       const client = await this.getOneClientAllData(userIdGoogle)
-      await this.cacheService.set(CACHE_NAME_FIND_ONE_CLIENT, client, '5m')
+      // await this.cacheService.set(CACHE_NAME_FIND_ONE_CLIENT, client, '5m')
       this.logger.verbose('Return data client DB: ' + userIdGoogle)
       return client
     } catch (error) {
@@ -254,6 +261,21 @@ export class ClientsService {
       )
     }
   }
+
+  private async verifyFindOne(userIdGoogle: string) {
+    return await this.prismaService.clients.findUnique({
+      where: {
+        userIdGoogle,
+      },
+
+      include: {
+        contact: false,
+        coupon: false,
+        orders: false,
+      },
+    })
+  }
+
   private async getOneClientAllData(userIdGoogle: string) {
     return await this.prismaService.clients.findUnique({
       where: {

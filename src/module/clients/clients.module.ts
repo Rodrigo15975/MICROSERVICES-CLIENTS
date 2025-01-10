@@ -25,9 +25,9 @@ import { NotificationEmailModule } from '../notification-email/notification-emai
         queues: configQueue,
         exchanges: configExchange,
 
-        connectionInitOptions: {
-          wait: false,
-        },
+        // connectionInitOptions: {
+        //   wait: false,
+        // },
       }),
       inject: [ConfigService],
     }),

@@ -15,7 +15,7 @@ import { ConfigService } from '@nestjs/config'
         })
         return new Cacheable({
           secondary,
-          ttl: '1h',
+          ttl: '1m',
         })
       },
       inject: [ConfigService],
