@@ -56,8 +56,6 @@ export class ClientsService {
           undefined,
           false,
         )
-
-      await this.sendEmailNotification(emailGoogle, nameGoogle)
       await this.prismaService.clients.create({
         data: {
           emailGoogle,
@@ -66,7 +64,11 @@ export class ClientsService {
         },
       })
       this.logger.verbose('Client created successfully')
-      return await this.createCouponForNewClient(userIdGoogle)
+      return await this.createCouponForNewClient(
+        userIdGoogle,
+        emailGoogle,
+        nameGoogle,
+      )
     } catch (error) {
       this.logger.error('Error create client', error)
       throw HandledRpcException.rpcException(
@@ -77,14 +79,23 @@ export class ClientsService {
     }
   }
 
-  private async createCouponForNewClient(userIdGoogle: string) {
+  private async createCouponForNewClient(
+    userIdGoogle: string,
+    emailGoogle: string,
+    nameGoogle: string,
+  ) {
     try {
       const data = getDataForCreateCoupon(userIdGoogle)
       await this.limiter.schedule(async () => {
         const createCoupon = this.prismaService.coupon.create({ data })
+        const sendEmail = this.sendEmailNotification(
+          emailGoogle,
+          nameGoogle,
+          data.code,
+        )
         const deleteCache = this.cacheService.delete(CACHE_NAME_ONLY_COUPONS)
         const findCoupons = this.findAllCupons()
-        await Promise.all([createCoupon, deleteCache, findCoupons])
+        await Promise.all([createCoupon, deleteCache, findCoupons, sendEmail])
       })
       this.logger.verbose(
         `Coupon created successfully for client ${userIdGoogle}`,
@@ -216,8 +227,12 @@ export class ClientsService {
     }
   }
 
-  async sendEmailNotification(emailGoogle: string, nameGoogle: string) {
-    await this.notificationEmail.sendEmail(nameGoogle, emailGoogle)
+  async sendEmailNotification(
+    emailGoogle: string,
+    nameGoogle: string,
+    code: string,
+  ) {
+    await this.notificationEmail.sendEmail(nameGoogle, emailGoogle, code)
   }
 
   @RabbitRPC({

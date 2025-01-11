@@ -16,17 +16,21 @@ export class NotificationEmailService {
   /**
    * @SendEmail
    */
-  public async sendEmail(nameTo: string, emailTo: string) {
+  public async sendEmail(nameTo: string, emailTo: string, code: string) {
     try {
       if (!emailTo || !nameTo) return
       this.notificationEmail.subject = 'You have a 20% discount on any product'
       this.notificationEmail.to = [{ name: nameTo, email: emailTo }]
       this.notificationEmail.htmlContent = `
         <p>
-        You have a 20% discount on any product
+        You have a 20% discount on any product 
+
         </p>
         `
       this.notificationEmail.templateId = 2
+      this.notificationEmail.params = {
+        CODE: code,
+      }
       this.notificationEmail.sender = {
         name: 'RDG E-COMMERCE',
         email: 'rodrigorumpler@gmail.com',
