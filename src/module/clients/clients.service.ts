@@ -4,10 +4,7 @@ import Bottleneck from 'bottleneck'
 import { PrismaService } from 'src/prisma/prisma.service'
 import { CacheService } from '../cache/cache.service'
 import { NotificationEmailService } from '../notification-email/notification-email.service'
-import {
-  CACHE_NAME_FIND_ONE_CLIENT,
-  CACHE_NAME_ONLY_COUPONS,
-} from './common/cache-name'
+import { CACHE_NAME_ONLY_COUPONS } from './common/cache-name'
 import { configPublish } from './common/config-rabbitMQ'
 import { HandledRpcException } from './common/handle-errorst'
 import { CouponForNewClient, CreateClientDto } from './dto/create-client.dto'
@@ -60,7 +57,7 @@ export class ClientsService {
           false,
         )
 
-      await this.sendEmailNotification(userIdGoogle)
+      await this.sendEmailNotification(emailGoogle, nameGoogle)
       await this.prismaService.clients.create({
         data: {
           emailGoogle,
@@ -219,10 +216,7 @@ export class ClientsService {
     }
   }
 
-  async sendEmailNotification(userIdGoogle: string) {
-    const client = await this.findOneClient(userIdGoogle)
-    if (!client) return
-    const { nameGoogle, emailGoogle } = client
+  async sendEmailNotification(emailGoogle: string, nameGoogle: string) {
     await this.notificationEmail.sendEmail(nameGoogle, emailGoogle)
   }
 
@@ -239,17 +233,8 @@ export class ClientsService {
     verify?: boolean
   }) {
     try {
-      // const clientCaching = await this.cacheService.get(
-      //   CACHE_NAME_FIND_ONE_CLIENT,
-      // )
-      // if (clientCaching) {
-      //   this.logger.verbose('Return data client CACHING: ' + userIdGoogle)
-      //   return clientCaching
-      // }
       if (verify) return await this.verifyFindOne(userIdGoogle)
-
       const client = await this.getOneClientAllData(userIdGoogle)
-      // await this.cacheService.set(CACHE_NAME_FIND_ONE_CLIENT, client, '5m')
       this.logger.verbose('Return data client DB: ' + userIdGoogle)
       return client
     } catch (error) {
@@ -291,9 +276,7 @@ export class ClientsService {
 
   // update contact of client
   // aqui ira el delete para el cachin one client
-  async updateClientContact() {
-    await this.cacheService.delete(CACHE_NAME_FIND_ONE_CLIENT)
-  }
+  async updateClientContact() {}
 
   // /**
   //  * testing
