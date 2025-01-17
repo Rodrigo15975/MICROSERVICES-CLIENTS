@@ -39,6 +39,7 @@ export class ClientsService {
   })
   async createCuponIfUserNotExists(data: CreateClientDto) {
     const { emailGoogle, nameGoogle, userIdGoogle } = data
+    if (!emailGoogle || !nameGoogle || !userIdGoogle) return
     return await this.createClient(userIdGoogle, emailGoogle, nameGoogle)
   }
   private async createClient(
