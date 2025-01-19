@@ -290,16 +290,5 @@ export class ClientsService {
     })
   }
 
-  // update contact of client
-  // aqui ira el delete para el cachin one client
   async updateClientContact() {}
-
-  // /**
-  //  * testing
-  //  */
-  // @RabbitSubscribe({
-  //   routingKey: configPublish.ROUTING_ROUTINGKEY_SEND_EMAIL_NOTIFICATION,
-  //   exchange: configPublish.ROUTING_EXCHANGE_SEND_EMAIL_NOTIFICATION,
-  //   queue: configPublish.QUEUE_SEND_EMAIL_NOTIFICATION,
-  // })
 }
