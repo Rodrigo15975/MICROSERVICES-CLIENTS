@@ -241,15 +241,8 @@ export class ClientsService {
     routingKey: configPublish.ROUTING_ROUTINGKEY_GET_ONE_CLIENT,
     exchange: configPublish.ROUTING_EXCHANGE_GET_ONE_CLIENT,
   })
-  async findOne({
-    userIdGoogle,
-    verify,
-  }: {
-    userIdGoogle: string
-    verify?: boolean
-  }) {
+  async findOne({ userIdGoogle }: { userIdGoogle: string }) {
     try {
-      if (verify) return await this.verifyFindOne(userIdGoogle)
       const client = await this.getOneClientAllData(userIdGoogle)
       this.logger.verbose('Return data client DB: ' + userIdGoogle)
       return client
@@ -263,7 +256,25 @@ export class ClientsService {
     }
   }
 
-  private async verifyFindOne(userIdGoogle: string) {
+  /**
+   * @findOneVerify
+   */
+  @RabbitRPC({
+    queue: configPublish.QUEUE_GET_ONE_CLIENT_VERIFY,
+    routingKey: configPublish.ROUTING_ROUTINGKEY_GET_ONE_CLIENT_VERIFY,
+    exchange: configPublish.ROUTING_EXCHANGE_GET_ONE_CLIENT_VERIFY,
+  })
+  async findOneVerify({
+    userIdGoogle,
+    verify,
+  }: {
+    userIdGoogle: string
+    verify: boolean
+  }) {
+    if (verify) return await this.existingClient(userIdGoogle)
+  }
+
+  private async existingClient(userIdGoogle: string) {
     return await this.prismaService.clients.findUnique({
       where: {
         userIdGoogle,
@@ -271,6 +282,7 @@ export class ClientsService {
 
       include: {
         contact: false,
+        _count: false,
         coupon: false,
         orders: false,
       },
