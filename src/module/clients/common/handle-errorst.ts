@@ -4,7 +4,7 @@ import { RpcException } from '@nestjs/microservices'
 export class HandledRpcException {
   static rpcException(
     message: string,
-    statusCode: HttpStatus,
+    statusCode?: HttpStatus,
     service?: string,
   ) {
     throw new RpcException({
@@ -12,6 +12,35 @@ export class HandledRpcException {
       statusCode,
       service,
     })
+  }
+
+  static RpcExceptionRabbit(
+    message: string,
+    title?: string,
+    statusCode?: HttpStatus,
+    service?: string,
+  ) {
+    return {
+      message,
+      title,
+      statusCode,
+      service,
+    }
+  }
+  static ResponseSuccessfullyRabbit(
+    title?: string,
+    message?: string,
+    statusCode?: HttpStatus,
+    service?: string,
+    discount?: number,
+  ) {
+    return {
+      discount,
+      message,
+      title,
+      statusCode,
+      service,
+    }
   }
 
   static RpcExceptionUknow(error: unknown | any) {
@@ -24,6 +53,7 @@ export class HandledRpcException {
     service: string,
     id?: number,
     newClient?: boolean,
+    discount?: number,
   ) {
     return {
       message,
@@ -32,6 +62,7 @@ export class HandledRpcException {
       timestamp: new Date().toISOString(),
       id,
       newClient,
+      discount,
     }
   }
 }
