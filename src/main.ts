@@ -4,8 +4,20 @@ import * as dotenv from 'dotenv'
 dotenv.config()
 async function bootstrap() {
   const app = await NestFactory.create(AppModule)
+  app.useLogger(['error', 'warn', 'log'])
   const PORT = process.env.PORT || 8085
-  await app.listen(PORT)
-  console.log(`Server running on port, ${PORT}`)
+  await app.listen(PORT, () => {
+    if (process.env.NODE_ENV === 'development')
+      return console.log(
+        'listening on port:',
+        PORT,
+        `\nNODE_ENV: ${process.env.NODE_ENV} `,
+      )
+    console.log(
+      'listening on port:',
+      PORT,
+      `\nNODE_ENV: ${process.env.NODE_ENV} `,
+    )
+  })
 }
 bootstrap()

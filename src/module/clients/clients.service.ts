@@ -14,8 +14,8 @@ import { expiredDateVerification } from './utils/verificationDate'
 export class ClientsService {
   private readonly logger: Logger = new Logger(ClientsService.name)
   private readonly limiter = new Bottleneck({
-    maxConcurrent: 5, // Máximo 3 tareas concurrentes
-    minTime: 300, // Al menos 200 ms entre tareas
+    maxConcurrent: 5,
+    minTime: 300,
     clusterNodes: 5,
     maxRetries: 5,
   })
@@ -30,7 +30,62 @@ export class ClientsService {
     })
   }
 
-  async create() {}
+  @RabbitRPC({
+    queue: configPublish.QUEUE_VERIFY_COUPON_COUDE,
+    routingKey: configPublish.ROUTING_ROUTINGKEY_VERIFY_COUPON_COUDE,
+    exchange: configPublish.ROUTING_EXCHANGE_VERIFY_COUPON_COUDE,
+  })
+  async verifyDiscountCouponOfClient({
+    code,
+    userIdGoogle,
+  }: {
+    code: string
+    userIdGoogle: string
+  }) {
+    await this.verifyClientExistedWithDiscount(userIdGoogle)
+    const findCoupon = await this.prismaService.coupon.findUnique({
+      where: {
+        code,
+      },
+    })
+
+    if (!findCoupon)
+      return HandledRpcException.RpcExceptionRabbit(
+        'Cuopon not found',
+        'Coupon not found',
+        HttpStatus.BAD_REQUEST,
+        ClientsService.name,
+      )
+
+    const { discount, expired } = findCoupon
+
+    if (expired)
+      return HandledRpcException.RpcExceptionRabbit(
+        'Coupon not found',
+        'Coupon not found',
+        HttpStatus.BAD_REQUEST,
+        ClientsService.name,
+      )
+
+    return HandledRpcException.ResponseSuccessfullyRabbit(
+      'Coupon found',
+      'Apply discount',
+      HttpStatus.OK,
+      ClientsService.name,
+      discount,
+    )
+    // await this.verifyEspiredCodeCoupon(code)
+  }
+
+  private async verifyClientExistedWithDiscount(userIdGoogle: string) {
+    const findClient = await this.findOneClient(userIdGoogle)
+    if (!findClient)
+      return HandledRpcException.rpcException(
+        'Client not found ',
+        HttpStatus.BAD_REQUEST,
+        ClientsService.name,
+      )
+  }
 
   @RabbitRPC({
     queue: configPublish.QUEUE_CREATE_COUPON,

@@ -4,6 +4,10 @@ import {
 } from '@golevelup/nestjs-rabbitmq'
 
 export const configPublish = {
+  QUEUE_VERIFY_COUPON_COUDE: 'client.verify.code.discount',
+  ROUTING_EXCHANGE_VERIFY_COUPON_COUDE: 'client.verify.code.discount',
+  ROUTING_ROUTINGKEY_VERIFY_COUPON_COUDE: 'client.verify.code.discount',
+
   QUEUE_CREATE_COUPON: 'client.create.coupon',
   ROUTING_EXCHANGE_CREATE_COUPON: 'client.create.coupon',
   ROUTING_ROUTINGKEY_CREATE_COUPON: 'client.create.coupon',
@@ -28,6 +32,15 @@ export const configPublish = {
 }
 
 export const configQueue: RabbitMQQueueConfig[] = [
+  {
+    name: 'client.verify.code.discount',
+    routingKey: 'client.verify.code.discount',
+    exchange: 'client.verify.code.discount',
+    options: {
+      persistent: true,
+    },
+  },
+
   {
     name: 'client.create.coupon',
     routingKey: 'client.create.coupon',
@@ -83,6 +96,14 @@ export const configQueue: RabbitMQQueueConfig[] = [
 ]
 
 export const configExchange: RabbitMQExchangeConfig[] = [
+  {
+    name: 'client.verify.code.discount',
+    type: 'direct',
+    options: {
+      persistent: true,
+    },
+  },
+
   {
     name: 'client.create.coupon',
     type: 'direct',
