@@ -76,13 +76,11 @@ model OrdersItems {
 }
 
 enum PaymentStatus {
-  requires_payment_method
-  requires_confirmation
-  requires_action
+  pending
+  paid
+  failed
   processing
-  requires_capture
-  canceled
-  succeeded
+  cancelled
 }
 
 model Coupon {
