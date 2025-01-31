@@ -74,7 +74,6 @@ export class ClientsService {
       ClientsService.name,
       discount,
     )
-    // await this.verifyEspiredCodeCoupon(code)
   }
 
   private async verifyClientExistedWithDiscount(userIdGoogle: string) {
