@@ -3,6 +3,7 @@ import { OrdersService } from './orders.service'
 import { RabbitMQModule } from '@golevelup/nestjs-rabbitmq'
 import { ConfigModule, ConfigService } from '@nestjs/config'
 import { configExchange, configQueue } from './common/config-rabbit'
+import { PrismaService } from 'src/prisma/prisma.service'
 
 @Module({
   imports: [
@@ -20,6 +21,6 @@ import { configExchange, configQueue } from './common/config-rabbit'
       inject: [ConfigService],
     }),
   ],
-  providers: [OrdersService],
+  providers: [OrdersService, PrismaService],
 })
 export class OrdersModule {}
