@@ -8,13 +8,13 @@ export const configRabbit = {
   ROUTING_ROUTINGKEY_CREATE_ORDERS: 'order.create',
   ROUTING_QUEUE_CREATE_ORDERS: 'order.create',
 
-  ROUTING_EXCHANGE_SEND_DATA_ORDERS: 'client.send.data.orders',
-  ROUTING_ROUTINGKEY_SEND_DATA_ORDERS: 'client.send.data.orders',
-  ROUTING_QUEUE_SEND_DATA_ORDERS: 'client.send.data.orders',
+  ROUTING_EXCHANGE_GET_ALL_ORDERS: 'client.get.all.orders',
+  ROUTING_ROUTINGKEY_GET_ALL_ORDERS: 'client.get.all.orders',
+  ROUTING_QUEUE_GET_ALL_ORDERS: 'client.get.all.orders',
 
-  ROUTING_EXCHANGE_GET_ALL_ORDERS: 'client.get.all.order',
-  ROUTING_ROUTINGKEY_GET_ALL_ORDERS: 'client.get.all.order',
-  ROUTING_QUEUE_GET_ALL_ORDERS: 'client.get.all.order',
+  EXCHANGE_NAME_DECREMENTE_STOCK: 'decrement.stock',
+  QUEUE_NAME_DECREMENTE_STOCK: 'decrement.stock',
+  ROUTING_KEY_DECREMENTE_STOCK: 'decrement.tock',
 }
 export const configQueue: RabbitMQQueueConfig[] = [
   {
@@ -24,7 +24,18 @@ export const configQueue: RabbitMQQueueConfig[] = [
     options: {
       durable: true,
       // expires: 60000,
-      // messageTtl: 30000, // Los mensajes expiran si no son consumidos en el tiempo definido.
+      messageTtl: 60000, // Los mensajes expiran si no son consumidos en el tiempo definido.
+      // autoDelete: true, //Borra la cola cuando ya no hay consumidores activos.
+    },
+  },
+  {
+    name: configRabbit.QUEUE_NAME_DECREMENTE_STOCK,
+    routingKey: configRabbit.ROUTING_KEY_DECREMENTE_STOCK,
+    exchange: configRabbit.EXCHANGE_NAME_DECREMENTE_STOCK,
+    options: {
+      durable: true,
+      // expires: 60000,
+      // messageTtl: 60000, // Los mensajes expiran si no son consumidos en el tiempo definido.
       // autoDelete: true, //Borra la cola cuando ya no hay consumidores activos.
     },
   },
@@ -32,14 +43,6 @@ export const configQueue: RabbitMQQueueConfig[] = [
     name: configRabbit.ROUTING_QUEUE_CREATE_ORDERS,
     routingKey: configRabbit.ROUTING_ROUTINGKEY_CREATE_ORDERS,
     exchange: configRabbit.ROUTING_EXCHANGE_CREATE_ORDERS,
-    options: {
-      durable: true,
-    },
-  },
-  {
-    name: configRabbit.ROUTING_QUEUE_SEND_DATA_ORDERS,
-    routingKey: configRabbit.ROUTING_ROUTINGKEY_SEND_DATA_ORDERS,
-    exchange: configRabbit.ROUTING_EXCHANGE_SEND_DATA_ORDERS,
     options: {
       durable: true,
     },
@@ -52,19 +55,22 @@ export const configExchange: RabbitMQExchangeConfig[] = [
     options: {
       durable: true,
       // expires: 60000,
-      // messageTtl: 30000, // Los mensajes expiran si no son consumidos en el tiempo definido.
+      messageTtl: 60000, // Los mensajes expiran si no son consumidos en el tiempo definido.
+      // autoDelete: true, //Borra la cola cuando ya no hay consumidores activos.
+    },
+  },
+  {
+    name: configRabbit.EXCHANGE_NAME_DECREMENTE_STOCK,
+    type: 'direct',
+    options: {
+      durable: true,
+      // expires: 60000,
+      // messageTtl: 60000, // Los mensajes expiran si no son consumidos en el tiempo definido.
       // autoDelete: true, //Borra la cola cuando ya no hay consumidores activos.
     },
   },
   {
     name: configRabbit.ROUTING_EXCHANGE_CREATE_ORDERS,
-    type: 'direct',
-    options: {
-      durable: true,
-    },
-  },
-  {
-    name: configRabbit.ROUTING_EXCHANGE_SEND_DATA_ORDERS,
     type: 'direct',
     options: {
       durable: true,

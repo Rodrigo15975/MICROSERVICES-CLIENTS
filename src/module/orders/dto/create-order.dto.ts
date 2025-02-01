@@ -3,7 +3,7 @@ export class CreateOrderDto {
   productIds: string
   orderId: string
   userId: string
-  statusPayment: string
+  statusPayment: 'paid'
 }
 
 export class Orders {
