@@ -8,109 +8,124 @@ import {
   InternalServerErrorException,
   Logger,
 } from '@nestjs/common'
-import { configRabbit } from './common/config-rabbit'
-import { CreateOrderDto, Orders } from './dto/create-order.dto'
-import { UpdateOrderDto } from './dto/update-order.dto'
-import { PrismaService } from 'src/prisma/prisma.service'
 import { randomUUID } from 'crypto'
+import { PrismaService } from 'src/prisma/prisma.service'
+import { CacheService } from '../cache/cache.service'
+import { configRabbit } from './common/config-rabbit'
+import { CreateOrderDto } from './dto/create-order.dto'
+import { UpdateOrderDto } from './dto/update-order.dto'
 
 @Injectable()
 export class OrdersService {
   private readonly logger = new Logger(OrdersService.name)
-  private readonly correlationId: string = randomUUID().toString()
+  private readonly ordersClientCache: string = `ordersClientCache:${randomUUID().toString()} `
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly amqConnection: AmqpConnection,
+    private readonly cache: CacheService,
+    private readonly amqAconnection: AmqpConnection,
   ) {}
 
   @RabbitSubscribe({
     queue: configRabbit.ROUTING_QUEUE_CREATE_ORDERS,
     routingKey: configRabbit.ROUTING_ROUTINGKEY_CREATE_ORDERS,
     exchange: configRabbit.ROUTING_EXCHANGE_CREATE_ORDERS,
+    // messageTtl → Elimina los mensajes, pero la cola sigue existiendo.
+    //   // ✅ expires → Elimina la cola si no se usa, pero si sigue recibiendo mensajes, no se
   })
   async create(@RabbitPayload() createOrderDto: CreateOrderDto) {
-    this.logger.debug(createOrderDto)
     try {
       const {
-        // userId: userIdGoogle,
-        productIds: productIds,
-        // amount_total,
+        userId: userIdGoogle,
+        amount_total,
+        statusPayment,
       } = createOrderDto
-      const getIdsProducts: string[] = this.getIdsProducts(productIds)
-      const productFilters = await this.getProductsFiltersByIds(getIdsProducts)
-      const orders = this.getAllOrders()
-      console.log({
-        orders,
-      })
-
-      // this.prismaService.orders.create({
-      //   data: {
-      //     amount_total: amount_total,
-      //     clientsId: userIdGoogle,
-      //     OrdersItems: {
-      //       createMany: {
-      //         data: getIdsProducts.map((id) => ({
-      //           productId: id,
-      //         })),
-      //       },
-      //     },
-      //     Clients: {
-      //       connect: {
-      //         userIdGoogle,
-      //       },
-      //     },
-      //   },
-      // })
+      await this.createOrders(userIdGoogle, amount_total, statusPayment)
     } catch (error) {
       this.logger.error('Error create order', error)
+      throw new InternalServerErrorException(error)
     }
   }
+
   @RabbitSubscribe({
-    queue: configRabbit.ROUTING_QUEUE_GET_ALL_ORDERS,
-    routingKey: configRabbit.ROUTING_ROUTINGKEY_GET_ALL_ORDERS,
     exchange: configRabbit.ROUTING_EXCHANGE_GET_ALL_ORDERS,
-    // messageTtl → Elimina los mensajes, pero la cola sigue existiendo.
-    // ✅ expires → Elimina la cola si no se usa, pero si sigue recibiendo mensajes, no se elimina y los
+    routingKey: configRabbit.ROUTING_ROUTINGKEY_GET_ALL_ORDERS,
+    queue: configRabbit.ROUTING_QUEUE_GET_ALL_ORDERS,
+    queueOptions: {
+      messageTtl: 60000,
+    },
   })
-  private getAllOrders(@RabbitPayload() orders?: Orders) {
-    return orders
+  async getAllOrdersDirectly(@RabbitPayload() payload: OrdersClient) {
+    await this.cache.set(this.ordersClientCache, payload, '10m')
   }
-
-  private async getProductsFiltersByIds(ids: string[]) {
-    const getAllDataProducts = await this.getAllDataProducts()
-    const productsIncludesId = getAllDataProducts.filter((item) =>
-      ids.includes(item.id.toString()),
-    )
-  }
-
-  getIdsProducts(productIds: string) {
-    return JSON.parse(productIds) as string[]
-  }
-
-  private async getAllDataProducts(): Promise<ProductFindAll[]> {
+  async createOrders(
+    userIdGoogle: string,
+    amount_total: string,
+    statusPayment: 'paid',
+  ) {
     try {
-      return await this.amqConnection.request<ProductFindAll[]>({
-        exchange: configRabbit.ROUTING_EXCHANGE_SEND_DATA_ORDERS,
-        routingKey: configRabbit.ROUTING_ROUTINGKEY_SEND_DATA_ORDERS,
-        payload: {},
-        // "persistent": true → Hace que el mensaje sea persistente, lo que significa que se guardará en disco en caso de que el broker RabbitMQ se reinicie o falle.
-        publishOptions: {
-          persistent: true,
-        },
-        headers: {
-          'content-type': 'application/json',
-          'content-encoding': 'utf-8',
-        },
-        expiration: 30000,
-        timeout: 30000,
-        correlationId: this.correlationId,
-      })
+      this.logger.debug('Create order')
+      const orders = await this.cache.get<OrdersClient>(this.ordersClientCache)
+      if (!orders) return
+      await this.orders(orders, userIdGoogle, amount_total, statusPayment)
+      this.amqAconnection.publish(
+        configRabbit.EXCHANGE_NAME_DECREMENTE_STOCK,
+        configRabbit.ROUTING_KEY_DECREMENTE_STOCK,
+        orders,
+      )
     } catch (error) {
-      this.logger.error('Error get all PRODUCT IN DB-READ-PRODUCTS', error)
-      throw new InternalServerErrorException(error.message, error.status)
+      this.logger.error('Error create order many', error)
+      throw new InternalServerErrorException(error)
     }
   }
-
+  private async orders(
+    orders: OrdersClient,
+    userIdGoogle: string,
+    amount_total: string,
+    statusPayment: 'paid',
+  ) {
+    await this.prismaService.orders.create({
+      data: {
+        amount_total,
+        OrdersItems: {
+          create: orders.dataFormat.map(
+            ({
+              product,
+              brand,
+              quantity_buy,
+              category,
+              discount,
+              price,
+              productVariant,
+              size,
+              description,
+            }) => ({
+              product,
+              brand,
+              quantity: quantity_buy,
+              categorie: category.category,
+              discount,
+              price,
+              ordersVariants: {
+                create: productVariant.map((variant) => ({
+                  color: variant.color,
+                  url: variant.url,
+                })),
+              },
+              size,
+              description,
+              status: statusPayment,
+            }),
+          ),
+        },
+        Clients: {
+          connect: {
+            userIdGoogle,
+          },
+        },
+      },
+    })
+    this.logger.debug('Order created....')
+  }
   findAll() {
     return `This action returns all orders`
   }
