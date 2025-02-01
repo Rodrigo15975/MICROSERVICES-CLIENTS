@@ -52,11 +52,11 @@ model OrdersVariants {
 }
 
 model OrdersItems {
-  id             String           @id @unique @default(cuid())
-  product        String
-  size           String[]
-  price          Decimal          @db.Decimal(10, 2)
-  gender         String
+  id      String   @id @unique @default(cuid())
+  product String
+  size    String[]
+  price   Decimal  @db.Decimal(10, 2)
+
   brand          String
   description    String
   quantity       Int
