@@ -218,10 +218,10 @@ export class ClientsService {
   async findAllClients() {
     // skip = 0, take = 10
     try {
-      // const clientsCache = await this.cacheService.get(
-      //   CACHE_NAME_GET_ALL_CLIENTES,
-      // )
-      // if (clientsCache) return clientsCache
+      const clientsCache = await this.cacheService.get(
+        CACHE_NAME_GET_ALL_CLIENTES,
+      )
+      if (clientsCache) return clientsCache
       const clients = await this.prismaService.clients.findMany({
         // skip,
         // take,
