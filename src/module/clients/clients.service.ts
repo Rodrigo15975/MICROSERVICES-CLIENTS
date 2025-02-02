@@ -4,7 +4,10 @@ import Bottleneck from 'bottleneck'
 import { PrismaService } from 'src/prisma/prisma.service'
 import { CacheService } from '../cache/cache.service'
 import { NotificationEmailService } from '../notification-email/notification-email.service'
-import { CACHE_NAME_ONLY_COUPONS } from './common/cache-name'
+import {
+  CACHE_NAME_GET_ALL_CLIENTES,
+  CACHE_NAME_ONLY_COUPONS,
+} from './common/cache-name'
 import { configPublish } from './common/config-rabbitMQ'
 import { HandledRpcException } from './common/handle-errorst'
 import { CouponForNewClient, CreateClientDto } from './dto/create-client.dto'
@@ -119,6 +122,7 @@ export class ClientsService {
         },
       })
       this.logger.verbose('Client created successfully')
+      await this.cacheService.delete(CACHE_NAME_GET_ALL_CLIENTES)
       return await this.createCouponForNewClient(
         userIdGoogle,
         emailGoogle,
@@ -211,18 +215,40 @@ export class ClientsService {
     exchange: configPublish.ROUTING_EXCHANGE_GET_ALL_CLIENTS,
     routingKey: configPublish.ROUTING_ROUTINGKEY_GET_ALL_CLIENTS,
   })
-  async findAll() {
+  async findAllClients() {
     // skip = 0, take = 10
     try {
-      return await this.prismaService.clients.findMany({
+      // const clientsCache = await this.cacheService.get(
+      //   CACHE_NAME_GET_ALL_CLIENTES,
+      // )
+      // if (clientsCache) return clientsCache
+      const clients = await this.prismaService.clients.findMany({
         // skip,
         // take,
         include: {
           contact: true,
           coupon: true,
-          orders: true,
+          orders: {
+            include: {
+              OrdersItems: {
+                include: {
+                  ordersVariants: true,
+                },
+              },
+            },
+          },
+          _count: {
+            select: {
+              orders: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
         },
       })
+      await this.cacheService.set(CACHE_NAME_GET_ALL_CLIENTES, clients, '20M')
+      return clients
     } catch (error) {
       this.logger.error('Error get all clients', error)
       throw HandledRpcException.rpcException(
