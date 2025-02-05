@@ -376,7 +376,6 @@ export class ClientsService {
       },
       include: {
         coupon: true,
-        orders: true,
         contact: true,
       },
     })
