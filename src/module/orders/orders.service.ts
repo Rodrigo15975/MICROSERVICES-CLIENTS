@@ -36,10 +36,10 @@ export class OrdersService {
   async getAllOrderByIdClient(userIdGoogle: string) {
     this.logger.debug(userIdGoogle)
     try {
-      // const getAllOrderByIdClientCache = await this.cache.get(
-      //   this.ordersCacheByIdClient,
-      // )
-      // if (getAllOrderByIdClientCache) return getAllOrderByIdClientCache
+      const getAllOrderByIdClientCache = await this.cache.get(
+        this.ordersCacheByIdClient,
+      )
+      if (getAllOrderByIdClientCache) return getAllOrderByIdClientCache
       const getAllOrderByIdClient = await this.prismaService.orders.findMany({
         where: {
           Clients: {
@@ -90,6 +90,7 @@ export class OrdersService {
         codeUsed,
       )
       await this.cache.delete(this.ordersClientCache)
+      await this.cache.delete(this.ordersCacheByIdClient)
     } catch (error) {
       this.logger.error('Error create order', error)
       throw new InternalServerErrorException(error)
