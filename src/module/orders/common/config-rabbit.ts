@@ -12,11 +12,25 @@ export const configRabbit = {
   ROUTING_ROUTINGKEY_GET_ALL_ORDERS: 'client.get.all.orders',
   ROUTING_QUEUE_GET_ALL_ORDERS: 'client.get.all.orders',
 
+  ROUTING_EXCHANGE_GET_ALL_ORDERS_CLIENT_ID: 'client.get.all.orders.client.id',
+  ROUTING_ROUTINGKEY_GET_ALL_ORDERS_CLIENT_ID:
+    'client.get.all.orders.client.id',
+  ROUTING_QUEUE_GET_ALL_ORDERS_CLIENT_ID: 'client.get.all.orders.client.id',
+
   EXCHANGE_NAME_DECREMENTE_STOCK: 'decrement.stock',
   QUEUE_NAME_DECREMENTE_STOCK: 'decrement.stock',
   ROUTING_KEY_DECREMENTE_STOCK: 'decrement.tock',
 }
 export const configQueue: RabbitMQQueueConfig[] = [
+  {
+    name: configRabbit.ROUTING_QUEUE_GET_ALL_ORDERS_CLIENT_ID,
+    routingKey: configRabbit.ROUTING_ROUTINGKEY_GET_ALL_ORDERS_CLIENT_ID,
+    exchange: configRabbit.ROUTING_EXCHANGE_GET_ALL_ORDERS_CLIENT_ID,
+    options: {
+      durable: true,
+      // expires: 60000,
+    },
+  },
   {
     name: configRabbit.ROUTING_QUEUE_GET_ALL_ORDERS,
     routingKey: configRabbit.ROUTING_ROUTINGKEY_GET_ALL_ORDERS,
@@ -49,6 +63,13 @@ export const configQueue: RabbitMQQueueConfig[] = [
   },
 ]
 export const configExchange: RabbitMQExchangeConfig[] = [
+  {
+    name: configRabbit.ROUTING_EXCHANGE_GET_ALL_ORDERS_CLIENT_ID,
+    type: 'direct',
+    options: {
+      durable: true,
+    },
+  },
   {
     name: configRabbit.ROUTING_EXCHANGE_GET_ALL_ORDERS,
     type: 'direct',
