@@ -13,6 +13,7 @@ import { PrismaService } from 'src/prisma/prisma.service'
 import { CacheService } from '../cache/cache.service'
 import { configRabbit } from './common/config-rabbit'
 import { CreateOrderDto } from './dto/create-order.dto'
+import { NotificationEmailService } from '../notification-email/notification-email.service'
 
 @Injectable()
 export class OrdersService {
@@ -22,6 +23,7 @@ export class OrdersService {
     private readonly prismaService: PrismaService,
     private readonly cache: CacheService,
     private readonly amqAconnection: AmqpConnection,
+    private readonly notificationEmail: NotificationEmailService,
   ) {}
 
   @RabbitSubscribe({
@@ -37,8 +39,14 @@ export class OrdersService {
         userId: userIdGoogle,
         amount_total,
         statusPayment,
+        emailUser,
       } = createOrderDto
-      await this.createOrders(userIdGoogle, amount_total, statusPayment)
+      await this.createOrders(
+        userIdGoogle,
+        amount_total,
+        statusPayment,
+        emailUser,
+      )
     } catch (error) {
       this.logger.error('Error create order', error)
       throw new InternalServerErrorException(error)
@@ -60,21 +68,53 @@ export class OrdersService {
     userIdGoogle: string,
     amount_total: string,
     statusPayment: 'paid',
+    emailUser: string,
   ) {
     try {
-      this.logger.debug('Create order')
       const orders = await this.cache.get<OrdersClient>(this.ordersClientCache)
       if (!orders) return
       await this.orders(orders, userIdGoogle, amount_total, statusPayment)
+      await this.sendDetailsOrders(orders, emailUser)
       this.amqAconnection.publish(
         configRabbit.EXCHANGE_NAME_DECREMENTE_STOCK,
         configRabbit.ROUTING_KEY_DECREMENTE_STOCK,
         orders,
       )
+      await this.desactivedCouponForClient(userIdGoogle)
     } catch (error) {
       this.logger.error('Error create order many', error)
       throw new InternalServerErrorException(error)
     }
+  }
+  private async desactivedCouponForClient(userIdGoogle: string) {
+    await this.prismaService.clients.update({
+      data: {
+        coupon: {
+          update: {
+            expired: true,
+          },
+        },
+      },
+      where: {
+        userIdGoogle,
+      },
+    })
+    this.logger.debug("Coupon's was used for client", userIdGoogle)
+  }
+
+  private async sendDetailsOrders(orders: OrdersClient, emailUser: string) {
+    const { dataFormat } = orders
+    dataFormat.forEach((order, i) => {
+      order.productVariant.forEach(async (variant) => {
+        this.logger.debug('Send details payment', i)
+        await this.notificationEmail.sendEmailDetailsPayment({
+          emailTo: emailUser,
+          nameTo: 'client',
+          product: order.product,
+          urlProduct: variant.url,
+        })
+      })
+    })
   }
   private async orders(
     orders: OrdersClient,
@@ -105,9 +145,9 @@ export class OrdersService {
               discount,
               price,
               ordersVariants: {
-                create: productVariant.map((variant) => ({
-                  color: variant.color,
-                  url: variant.url,
+                create: productVariant.map((variants) => ({
+                  color: variants.color,
+                  url: variants.url,
                 })),
               },
               size,
