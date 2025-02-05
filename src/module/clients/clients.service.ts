@@ -355,7 +355,7 @@ export class ClientsService {
   }
 
   private async existingClient(userIdGoogle: string) {
-    return await this.prismaService.clients.findUnique({
+    const client = await this.prismaService.clients.findUnique({
       where: {
         userIdGoogle,
       },
@@ -367,10 +367,12 @@ export class ClientsService {
         orders: false,
       },
     })
+    if (!client) return
+    return client
   }
 
   private async getOneClientAllData(userIdGoogle: string) {
-    return await this.prismaService.clients.findUnique({
+    const client = await this.prismaService.clients.findUnique({
       where: {
         userIdGoogle,
       },
@@ -379,5 +381,7 @@ export class ClientsService {
         contact: true,
       },
     })
+    if (!client) return
+    return client
   }
 }

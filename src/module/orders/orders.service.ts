@@ -36,10 +36,10 @@ export class OrdersService {
   async getAllOrderByIdClient(userIdGoogle: string) {
     this.logger.debug(userIdGoogle)
     try {
-      const getAllOrderByIdClientCache = await this.cache.get(
-        this.ordersCacheByIdClient,
-      )
-      if (getAllOrderByIdClientCache) return getAllOrderByIdClientCache
+      // const getAllOrderByIdClientCache = await this.cache.get(
+      //   this.ordersCacheByIdClient,
+      // )
+      // if (getAllOrderByIdClientCache) return getAllOrderByIdClientCache
       const getAllOrderByIdClient = await this.prismaService.orders.findMany({
         where: {
           Clients: {
