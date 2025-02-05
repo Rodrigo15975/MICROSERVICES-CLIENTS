@@ -40,12 +40,14 @@ export class OrdersService {
         amount_total,
         statusPayment,
         emailUser,
+        codeUsed,
       } = createOrderDto
       await this.createOrders(
         userIdGoogle,
         amount_total,
         statusPayment,
         emailUser,
+        codeUsed,
       )
     } catch (error) {
       this.logger.error('Error create order', error)
@@ -69,6 +71,7 @@ export class OrdersService {
     amount_total: string,
     statusPayment: 'paid',
     emailUser: string,
+    codeUsed: string,
   ) {
     try {
       const orders = await this.cache.get<OrdersClient>(this.ordersClientCache)
@@ -80,13 +83,16 @@ export class OrdersService {
         configRabbit.ROUTING_KEY_DECREMENTE_STOCK,
         orders,
       )
-      await this.desactivedCouponForClient(userIdGoogle)
+      const codeUseBooleanParse = codeUsed === 'false' ? false : true
+      if (codeUseBooleanParse)
+        await this.desactivedCouponForClient(userIdGoogle)
     } catch (error) {
       this.logger.error('Error create order many', error)
       throw new InternalServerErrorException(error)
     }
   }
   private async desactivedCouponForClient(userIdGoogle: string) {
+    this.logger.debug("Coupon's was used for client", userIdGoogle)
     await this.prismaService.clients.update({
       data: {
         coupon: {
