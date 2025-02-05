@@ -1,18 +1,44 @@
-import { Injectable, Logger } from '@nestjs/common'
+import {
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common'
 import * as brevo from '@getbrevo/brevo'
-// import { formatEmail } from 'src/common/notification-email'
 
 @Injectable()
 export class NotificationEmailService {
   private readonly apiInstance = new brevo.TransactionalEmailsApi()
-  private notificationEmail = new brevo.SendSmtpEmail()
+  private readonly notificationEmail = new brevo.SendSmtpEmail()
   constructor() {
     this.apiInstance.setApiKey(
       brevo.TransactionalEmailsApiApiKeys.apiKey,
       process.env.BREVO_API_KEY,
     )
   }
-
+  /**
+   * sendEmailDetailsFactura
+   */
+  public async sendEmailDetailsPayment(details: DetailsPayment) {
+    try {
+      const { emailTo: email, nameTo: name, product, urlProduct } = details
+      this.notificationEmail.subject = 'Details order'
+      this.notificationEmail.htmlContent = `
+        <p>
+        Details product
+        </p>
+        `
+      this.notificationEmail.to = [{ name, email }]
+      this.notificationEmail.templateId = 3
+      this.notificationEmail.params = {
+        product,
+        IMG: urlProduct,
+      }
+      await this.apiInstance.sendTransacEmail(this.notificationEmail)
+    } catch (error) {
+      Logger.error('Error while sending email', error)
+      throw new InternalServerErrorException(error)
+    }
+  }
   /**
    * @SendEmail
    */

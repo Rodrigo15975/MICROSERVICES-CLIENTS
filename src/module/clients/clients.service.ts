@@ -324,7 +324,7 @@ export class ClientsService {
   async findOne({ userIdGoogle }: { userIdGoogle: string }) {
     try {
       const client = await this.getOneClientAllData(userIdGoogle)
-      this.logger.verbose('Return data client DB: ' + userIdGoogle)
+      this.logger.verbose('Return data client DB: ', userIdGoogle)
       return client
     } catch (error) {
       this.logger.error('Error get only client', error)
@@ -381,6 +381,4 @@ export class ClientsService {
       },
     })
   }
-
-  async updateClientContact() {}
 }
