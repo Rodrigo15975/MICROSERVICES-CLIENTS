@@ -1,6 +1,7 @@
 import {
   AmqpConnection,
   RabbitPayload,
+  RabbitRPC,
   RabbitSubscribe,
 } from '@golevelup/nestjs-rabbitmq'
 import {
@@ -18,13 +19,52 @@ import { NotificationEmailService } from '../notification-email/notification-ema
 @Injectable()
 export class OrdersService {
   private readonly logger = new Logger(OrdersService.name)
-  private readonly ordersClientCache: string = `ordersClientCache:${randomUUID().toString()} `
+  private readonly ordersClientCache: string = `ordersClientCache:${randomUUID().toString()}`
+  private readonly ordersCacheByIdClient: string = `ordersCacheByIdClient:${randomUUID().toString()}`
   constructor(
     private readonly prismaService: PrismaService,
     private readonly cache: CacheService,
     private readonly amqAconnection: AmqpConnection,
     private readonly notificationEmail: NotificationEmailService,
   ) {}
+
+  @RabbitRPC({
+    exchange: configRabbit.ROUTING_EXCHANGE_GET_ALL_ORDERS_CLIENT_ID,
+    routingKey: configRabbit.ROUTING_ROUTINGKEY_GET_ALL_ORDERS_CLIENT_ID,
+    queue: configRabbit.ROUTING_QUEUE_GET_ALL_ORDERS_CLIENT_ID,
+  })
+  async getAllOrderByIdClient(userIdGoogle: string) {
+    this.logger.debug(userIdGoogle)
+    try {
+      const getAllOrderByIdClientCache = await this.cache.get(
+        this.ordersCacheByIdClient,
+      )
+      if (getAllOrderByIdClientCache) return getAllOrderByIdClientCache
+      const getAllOrderByIdClient = await this.prismaService.orders.findMany({
+        where: {
+          Clients: {
+            userIdGoogle,
+          },
+        },
+        include: {
+          OrdersItems: {
+            include: {
+              ordersVariants: true,
+            },
+          },
+        },
+      })
+      await this.cache.set(
+        this.ordersCacheByIdClient,
+        getAllOrderByIdClient,
+        '1d',
+      )
+      return getAllOrderByIdClient
+    } catch (error) {
+      this.logger.error('Error get all order by id client', error)
+      throw new InternalServerErrorException(error)
+    }
+  }
 
   @RabbitSubscribe({
     queue: configRabbit.ROUTING_QUEUE_CREATE_ORDERS,
@@ -49,6 +89,7 @@ export class OrdersService {
         emailUser,
         codeUsed,
       )
+      await this.cache.delete(this.ordersClientCache)
     } catch (error) {
       this.logger.error('Error create order', error)
       throw new InternalServerErrorException(error)
