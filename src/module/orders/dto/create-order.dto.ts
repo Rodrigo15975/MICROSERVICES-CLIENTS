@@ -4,6 +4,7 @@ export class CreateOrderDto {
   orderId: string
   userId: string
   statusPayment: 'paid'
+  emailUser: string
 }
 
 export class Orders {
