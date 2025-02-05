@@ -5,6 +5,7 @@ export class CreateOrderDto {
   userId: string
   statusPayment: 'paid'
   emailUser: string
+  codeUsed: string
 }
 
 export class Orders {
@@ -31,4 +32,5 @@ export class Orders {
   }[]
   emailUser: string
   idUser: string
+  codeUsed: boolean
 }
