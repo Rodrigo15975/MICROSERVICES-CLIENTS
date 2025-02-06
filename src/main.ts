@@ -9,7 +9,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule)
   app.useLogger(
     process.env.NODE_ENV === 'production'
-      ? ['error', 'warn']
+      ? ['error', 'warn', 'log']
       : ['log', 'error', 'warn', 'debug', 'verbose'],
   )
   const PORT = process.env.PORT || 8085

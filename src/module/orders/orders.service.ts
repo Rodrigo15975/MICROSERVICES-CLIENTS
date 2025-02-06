@@ -20,7 +20,7 @@ import { NotificationEmailService } from '../notification-email/notification-ema
 export class OrdersService {
   private readonly logger = new Logger(OrdersService.name)
   private readonly ordersClientCache: string = `ordersClientCache:${randomUUID().toString()}`
-  private readonly ordersCacheByIdClient: string = `ordersCacheByIdClient:${randomUUID().toString()}`
+  private readonly ordersCacheByIdClient: string = `orders:get:all:by_id_client`
   constructor(
     private readonly prismaService: PrismaService,
     private readonly cache: CacheService,
