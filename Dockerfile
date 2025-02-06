@@ -8,6 +8,4 @@ COPY . .
 RUN  npm install
 RUN  npm run build
 EXPOSE 8085
-
-ENV PORT=8085
 CMD [ "npm", "run", "start:prod" ]
