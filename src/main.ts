@@ -12,7 +12,7 @@ async function bootstrap() {
       ? ['error', 'warn', 'log']
       : ['log', 'error', 'warn', 'debug', 'verbose'],
   )
-  const PORT = process.env.PORT || 8085
+  const PORT = Number(process.env.PORT) || 8085
   await app.listen(PORT, () => {
     if (process.env.NODE_ENV === 'development')
       return Logger.debug(

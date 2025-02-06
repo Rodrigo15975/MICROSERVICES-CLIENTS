@@ -14,7 +14,8 @@ import { NotificationEmailModule } from '../notification-email/notification-emai
     NotificationEmailModule,
     CacheModule,
     ConfigModule.forRoot({
-      envFilePath: '.env',
+      envFilePath:
+        process.env.NODE_ENV === 'production' ? '.env.production' : '.env',
       isGlobal: true,
       cache: true,
       expandVariables: true,
@@ -24,10 +25,6 @@ import { NotificationEmailModule } from '../notification-email/notification-emai
         uri: configService.getOrThrow('RABBITMQ_URL'),
         queues: configQueue,
         exchanges: configExchange,
-
-        // connectionInitOptions: {
-        //   wait: false,
-        // },
       }),
       inject: [ConfigService],
     }),
