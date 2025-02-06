@@ -20,7 +20,11 @@ async function bootstrap() {
         PORT,
         `NODE_ENV: ${process.env.NODE_ENV} `,
       )
-    Logger.log('listening on port:', `NODE_ENV: ${process.env.NODE_ENV} `)
+    Logger.log(
+      'listening on port: ',
+      PORT,
+      ` NODE_ENV: ${process.env.NODE_ENV} `,
+    )
   })
 }
 bootstrap()
